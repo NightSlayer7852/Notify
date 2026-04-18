@@ -2,6 +2,7 @@
 
 from utils.llm import call_llm
 from tools.web_search import search_web
+import asyncio
 
 def format_results(results):
     """Convert Tavily results into clean text for LLM"""
@@ -18,21 +19,13 @@ def format_results(results):
 
     return formatted
 
+async def process_subtopic(topic, sub):
+    print(f"Researching: {sub}")
 
-def researcher_agent(topic, subtopics):
-    research_data = {}
+    results = await asyncio.to_thread(search_web, f"{topic}{sub}")
+    formatted = format_results(results)
 
-    for sub in subtopics:
-        print(f"\nResearching: {sub}")
-
-        # Step 1: Search
-        results = search_web(f"{topic} {sub}")
-
-        # Step 2: Format results
-        formatted_data = format_results(results)
-
-        # Step 3: Send to LLM
-        prompt = f"""
+    prompt = """
         You are a research assistant.
 
         Use ONLY the information provided below to explain the topic.
@@ -52,21 +45,30 @@ def researcher_agent(topic, subtopics):
         Output:
         """
 
-        explanation = call_llm(prompt)
+    explanation = await asyncio.to_thread(call_llm, prompt)
+    return sub, {
+        "content": explanation,
+        "sources": [r.get("url") for r in results]
+    }
 
-        research_data[sub] = {
-            "content": explanation,
-            "sources": [r["url"] for r in results]
-        }
+async def researcher_agent_async(topic, subtopics):
+    tasks = [
+        process_subtopic(topic, subtopic)
+        for subtopic in subtopics
+    ]
 
-    return research_data
+    results = await asyncio.gather(*tasks)
+
+    return dict(results)
 
 def researcher_node(state):
     topic = state["topic"]
     subtopics = state["subtopics"]
 
-    research_data = researcher_agent(topic, subtopics)
+    research_data = asyncio.run(
+        researcher_agent_async(topic, subtopics)
+    )
 
     return {
-        "research_data": research_data
+        "research_data" : research_data
     }

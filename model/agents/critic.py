@@ -1,36 +1,43 @@
 # agents/critic.py
-
+import json
 from utils.llm import call_llm
 
 def critic_agent(notes):
     prompt = f"""
-    You are a strict reviewer.
-
-    Evaluate the following notes:
+    Evaluate the following notes.
 
     {notes}
 
-    Give output in this format:
-
-    Strengths:
-    - ...
-
-    Weaknesses:
-    - ...
-
-    Improvements:
-    - ...
-
-    Be specific and critical.
+    Return ONLY valid JSON in this format:
+    {{
+        "score": number between 1-10,
+        "strengths": ["..."],
+        "weaknesses": ["..."],
+        "improvements": ["..."]
+    }}
     """
 
-    return call_llm(prompt)
+    result = call_llm(prompt)
+
+    try:
+        data = json.loads(result)
+    except:
+        # fallback
+        data = {
+            "score": 5,
+            "strengths": [],
+            "weaknesses": ["Parsing failed"],
+            "improvements": ["Improve structure"]
+        }
+
+    return data
 
 def critic_node(state):
     notes = state["notes"]
 
-    feedback = critic_agent(notes)
+    data = critic_agent(notes)
 
     return {
-        "feedback": feedback
+        "feedback": data,
+        "score": data["score"]
     }

@@ -9,3 +9,5 @@ class GraphState(TypedDict):
     notes: str
     summary: str
     feedback: str
+    score: int            # NEW
+    iteration: int        # NEW

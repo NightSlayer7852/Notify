@@ -8,6 +8,18 @@ from agents.summarizer import summarizer_node
 from agents.critic import critic_node
 from agents.refine import refine_node
 
+def should_refine(state):
+    score = state["score"]
+    iteration = state.get("iteration", 0)
+
+    if score >= 8:
+        return "good"
+
+    if iteration >= 2:
+        return "maxed"
+
+    return "refine"
+
 def build_graph():
     builder = StateGraph(GraphState)
 
@@ -25,6 +37,16 @@ def build_graph():
     builder.add_edge("planner", "researcher")
     builder.add_edge("researcher", "writer")
     builder.add_edge("writer", "critic")
+    builder.add_conditional_edges(
+        "critic",
+        should_refine,
+        {
+            "refine": "refine",
+            "good": "summarizer",
+            "maxed": "summarizer"
+        }
+    )
+
     builder.add_edge("critic", "refine")
     builder.add_edge("refine", "summarizer")
 
